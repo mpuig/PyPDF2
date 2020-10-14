@@ -1138,6 +1138,8 @@ class PdfFileReader(object):
         self.flattenedPages = None
         self.resolvedObjects = {}
         self.xrefIndex = 0
+        self.xrefstream = False
+        self.startxref = 0
         self._pageId2Num = None # map page IndirectRef number to Page Number
         if hasattr(stream, 'mode') and 'b' not in stream.mode:
             warnings.warn("PdfFileReader stream/file object is not in binary mode. It may not be read correctly.", utils.PdfReadWarning)
@@ -1777,6 +1779,8 @@ class PdfFileReader(object):
             if line[:9] != b_("startxref"):
                 raise utils.PdfReadError("startxref not found")
 
+        self.startxref = startxref
+        self.xrefstream = False
         # read all cross reference tables and their trailers
         self.xref = {}
         self.xref_objStm = {}
@@ -1868,6 +1872,7 @@ class PdfFileReader(object):
                 idnum, generation = self.readObjectHeader(stream)
                 xrefstream = readObject(stream, self)
                 assert xrefstream["/Type"] == "/XRef"
+                self.xrefstream = True
                 self.cacheIndirectObject(generation, idnum, xrefstream)
                 streamData = BytesIO(b_(xrefstream.getData()))
                 # Index pairs specify the subsections in the dictionary. If
@@ -1933,7 +1938,7 @@ class PdfFileReader(object):
                             raise utils.PdfReadError("Unknown xref type: %s"%
                                                         xref_type)
 
-                trailerKeys = "/Root", "/Encrypt", "/Info", "/ID"
+                trailerKeys = "/Root", "/Encrypt", "/Info", "/ID", "/Size"
                 for key in trailerKeys:
                     if key in xrefstream and key not in self.trailer:
                         self.trailer[NameObject(key)] = xrefstream.raw_get(key)
